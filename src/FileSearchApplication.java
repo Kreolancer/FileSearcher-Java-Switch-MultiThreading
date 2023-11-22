@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class FileSearchApplication {
@@ -216,7 +217,7 @@ public class FileSearchApplication {
         frame.getContentPane().add(scrollPane1, BorderLayout.WEST);
     }
 
-    private synchronized void startSearchThreads() {
+    private void startSearchThreads() {
         if (fileSearchThread != null && !fileSearchThread.isInterrupted()) {
             fileSearchThread.interrupt();
             System.gc();
@@ -260,17 +261,18 @@ public class FileSearchApplication {
             }
         }
 
-        try {
-            fileSearchThread.join();
-            fileSearchThread1.join();
-        } catch (InterruptedException ex) {
-            ex.printStackTrace();
-        }
+//        try {
+//            fileSearchThread.join();
+//            fileSearchThread1.join();
+//        }
+//        catch (InterruptedException ex) {
+//            ex.printStackTrace();
+//        }
 
         searchButton.setEnabled(true);
     }
 
-    private synchronized void startSearchThreads1() {
+    private void startSearchThreads1() {
         if (fileSearchThread1 != null && !fileSearchThread1.isInterrupted()) {
             fileSearchThread1.interrupt();
             System.gc();
@@ -288,11 +290,11 @@ public class FileSearchApplication {
         fileSearchThread1 = new Thread(new FileSearchRunnable(directoryPath1, pattern1, recursive1, patternSearch1, maxDepth1, fileResultList1));
         fileSearchThread1.start();
 
-        try {
-            fileSearchThread1.join();
-        } catch (InterruptedException ex) {
-            ex.printStackTrace();
-        }
+//        try {
+//            fileSearchThread1.join();
+//        } catch (InterruptedException ex) {
+//            ex.printStackTrace();
+//        }
 
         ThreadGroup currentGroup = Thread.currentThread().getThreadGroup();
         int noThreads = currentGroup.activeCount();
@@ -300,7 +302,7 @@ public class FileSearchApplication {
         currentGroup.enumerate(threads);
         for (Thread t : threads) {
             if (t != null) {
-                System.out.println("Thread " + t.getName() + " is running " + t.getState() + "\t" + t.getPriority());
+                System.out.println("Thread " + t.getName() + " is " + t.getState() + "\t" + t.getPriority());
             }
         }
 
@@ -325,11 +327,11 @@ public class FileSearchApplication {
         }
 
         @Override
-        public synchronized void run() {
+        public void run() {
             searchFiles(new File(directoryPath), pattern, recursive, patternSearch, maxDepth, fileResultList2);
         }
 
-        private synchronized void searchFiles(File directory, String pattern, boolean recursive, boolean patternSearch, int maxDepth, List<File> fileResultList2) {
+        private void searchFiles(File directory, String pattern, boolean recursive, boolean patternSearch, int maxDepth, List<File> fileResultList2) {
             if (Thread.interrupted()) {
                 return;
             }
@@ -344,19 +346,29 @@ public class FileSearchApplication {
                     if (!patternSearch) {
                         String fName = file.getName();
                         if (fName.contains(pattern)) {
-                            fileResultList2.add(file);
-                            resultTextArea.append(file.getAbsolutePath() + "\n");
+                            //fileResultList2.add(file);
+                            synchronized (resultTextArea) {
+                                SwingUtilities.invokeLater(() -> {
+                                    resultTextArea.append(Thread.currentThread().getName() + "\t" + file.getAbsolutePath() + "\n");
+                                });
+                            }
                         }
                     } else {
                         String fName = file.getName();
                         String regex = "^" + pattern.replace(".", "\\.").replace("*", ".+") + "$";
                         if (fName.matches(regex)) {
-                            fileResultList2.add(file);
-                            resultTextArea.append(file.getAbsolutePath() + "\n");
+
+                            //fileResultList2.add(file);
+                            synchronized (resultTextArea) {
+                                SwingUtilities.invokeLater(() -> {
+                                    resultTextArea.append(Thread.currentThread().getName() + "\t" + file.getAbsolutePath() + "\n");
+                                });
+                            }
 
                             if(needToEdit && fName.endsWith(".txt")) {
-                                editFile(file);
+                                //String text = file.getAbsoluteFile();
                                 needToEdit = false;
+                                editFile(file);
                             }
                         }
                     }
@@ -390,6 +402,29 @@ public class FileSearchApplication {
                 //lock.unlock();
             }
         }
+//Condition suspend =  lock.newCondition();
+        //private void editFile(File file) {
+            //lock.lock();
+            //try {
+            //    while (isEditing) {
+            //
+            //            suspend.await();  // Поток ожидает, пока не получит уведомление
+            //
+            //    }
+        //} catch (InterruptedException e) {
+        //    e.printStackTrace();
+        //}finally {
+        //    lock.unlock();
+        //    }
+        //        isEditing = true;  // Поток начинает редактирование файла
+
+                // Запуск файла на редактирование
+                // Предположим, что 'edit' - это метод, который открывает файл для редактирования
+                //edit(file);
+
+                //isEditing = false;  // Поток завершил редактирование файла
+                //lock1.notifyAll();  // Уведомление всех ожидающих потоков
+            //}
 
         private void editFile(File file) {
             synchronized(lock1) {
