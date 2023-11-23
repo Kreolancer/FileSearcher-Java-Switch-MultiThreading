@@ -59,7 +59,9 @@ public class FileSearchApplication {
                 try {
                     FileSearchApplication window = new FileSearchApplication();
                     window.frame.setVisible(true);
-                    JOptionPane.showMessageDialog(null, "Работа с обоими потоками одновременно происходит через меню в левом верхнем углу,\n это сделано из-за местами сильных лагов визуальных компонентов Swing\n и невозможности нажать несколько кнопок одновременно во время зависания");
+                    JOptionPane.showMessageDialog(null, "Работа с обоими потоками одновременно происходит через меню в левом верхнем углу,\n" +
+                            " это сделано из-за местами сильных лагов визуальных компонентов Swing\n" +
+                            " и невозможности нажать несколько кнопок одновременно во время зависания\n");
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -83,21 +85,19 @@ public class FileSearchApplication {
         menuButton4 = new JMenuItem("Стоп");
         menuButton4.setEnabled(false);
         menuButton5 = new JMenuItem("Очистить");
-        menuButton5.setEnabled(false);
 
         menuButton1.addActionListener(e -> {
             needToEdit.set(true);
             running.set(true);
             menuButton2.setEnabled(true);
             menuButton4.setEnabled(true);
-            menuButton5.setEnabled(true);
-            searchButton.doClick();
-            searchButton1.doClick();
             menuButton1.setEnabled(false);
-            searchButton.setEnabled(false);
-            searchButton1.setEnabled(false);
             stopButton.setEnabled(true);
             stopButton1.setEnabled(true);
+            searchButton.doClick();
+            searchButton1.doClick();
+            searchButton.setEnabled(false);
+            searchButton1.setEnabled(false);
         });
 
         menuButton2.addActionListener(e -> {
@@ -112,15 +112,15 @@ public class FileSearchApplication {
             paused.set(false);
             menuButton3.setEnabled(false);
 
-//            lock.lock();
-//            try {
-//                suspend.signalAll();
-//            } catch (RuntimeException ex) {
-//                throw new RuntimeException(ex);
-//            }
-//            finally {
-//                lock.unlock();
-//            }
+            lock.lock();
+            try {
+                suspend.signalAll();
+            } catch (RuntimeException ex) {
+                throw new RuntimeException(ex);
+            }
+            finally {
+                lock.unlock();
+            }
 
             System.out.println("Возобновить" + "\n");
             System.out.println("Thread " + fileSearchThread.getName() + " is " + fileSearchThread.getState() + "\t" + fileSearchThread.getPriority());
@@ -133,12 +133,22 @@ public class FileSearchApplication {
             menuButton2.setEnabled(false);
             menuButton3.setEnabled(false);
             menuButton4.setEnabled(false);
-            menuButton5.setEnabled(false);
             searchButton.setEnabled(true);
             searchButton1.setEnabled(true);
             System.out.println("Стоп" + "\n");
-            fileSearchThread.interrupt();
-            fileSearchThread1.interrupt();
+
+            lock.lock();
+            try {
+                suspend.signalAll();
+                fileSearchThread.interrupt();
+                fileSearchThread1.interrupt();
+            } catch (RuntimeException ex) {
+                throw new RuntimeException(ex);
+            }
+            finally {
+                lock.unlock();
+            }
+
             System.gc();
             System.out.println("Thread " + fileSearchThread.getName() + " is " + fileSearchThread.getState() + "\t" + fileSearchThread.getPriority());
             System.out.println("Thread " + fileSearchThread1.getName() + " is " + fileSearchThread1.getState() + "\t" + fileSearchThread1.getPriority());
@@ -149,8 +159,8 @@ public class FileSearchApplication {
             resultTextArea.replaceSelection("");
             //needToEdit = true;
             System.out.println("Очистить" + "\n");
-            System.out.println("Thread " + fileSearchThread.getName() + " is running " + fileSearchThread.getState() + "\t" + fileSearchThread.getPriority());
-            System.out.println("Thread " + fileSearchThread1.getName() + " is running " + fileSearchThread1.getState() + "\t" + fileSearchThread1.getPriority());
+            System.out.println("Thread " + fileSearchThread.getName() + " is " + fileSearchThread.getState() + "\t" + fileSearchThread.getPriority());
+            System.out.println("Thread " + fileSearchThread1.getName() + " is " + fileSearchThread1.getState() + "\t" + fileSearchThread1.getPriority());
         });
 
         menu.add(menuButton1);
@@ -264,14 +274,32 @@ public class FileSearchApplication {
             public void actionPerformed(ActionEvent e) {
                 if (patternTextField.getText().isEmpty() || directoryTextField.getText().isEmpty()) {
                     JOptionPane.showMessageDialog(frame, "Поля 'Directory' и 'Pattern' не могут быть пустыми");
+                    menuButton1.setEnabled(true);
+                    menuButton2.setEnabled(false);
+                    menuButton3.setEnabled(false);
+                    menuButton4.setEnabled(false);
+                    searchButton.setEnabled(true);
+                    stopButton.setEnabled(false);
                     return;
                 }
                 if (maxDepthTextField.getText().isEmpty()) {
                     JOptionPane.showMessageDialog(frame, "Поля 'Max Depth' не могут быть пустыми");
+                    menuButton1.setEnabled(true);
+                    menuButton2.setEnabled(false);
+                    menuButton3.setEnabled(false);
+                    menuButton4.setEnabled(false);
+                    searchButton.setEnabled(true);
+                    stopButton.setEnabled(false);
                     return;
                 }
                 if (recursiveCheckBox.isSelected() && (Integer.parseInt(maxDepthTextField.getText()) > 6 || Integer.parseInt(maxDepthTextField.getText()) < 0)) {
                     JOptionPane.showMessageDialog(frame, "Значение 'Max Depth' не должно превышать 6 и быть меньше нуля");
+                    menuButton1.setEnabled(true);
+                    menuButton2.setEnabled(false);
+                    menuButton3.setEnabled(false);
+                    menuButton4.setEnabled(false);
+                    searchButton.setEnabled(true);
+                    stopButton.setEnabled(false);
                     return;
                 }
 
@@ -288,14 +316,32 @@ public class FileSearchApplication {
             public void actionPerformed(ActionEvent e) {
                 if (patternTextField1.getText().isEmpty() || directoryTextField1.getText().isEmpty()) {
                     JOptionPane.showMessageDialog(frame, "Поля 'Directory' и 'Pattern' не могут быть пустыми");
+                    menuButton1.setEnabled(true);
+                    menuButton2.setEnabled(false);
+                    menuButton3.setEnabled(false);
+                    menuButton4.setEnabled(false);
+                    searchButton1.setEnabled(true);
+                    stopButton1.setEnabled(false);
                     return;
                 }
                 if (maxDepthTextField1.getText().isEmpty()) {
                     JOptionPane.showMessageDialog(frame, "Поля 'Max Depth' не могут быть пустыми");
+                    menuButton1.setEnabled(true);
+                    menuButton2.setEnabled(false);
+                    menuButton3.setEnabled(false);
+                    menuButton4.setEnabled(false);
+                    searchButton1.setEnabled(true);
+                    stopButton1.setEnabled(false);
                     return;
                 }
                 if (recursiveCheckBox1.isSelected() && (Integer.parseInt(maxDepthTextField1.getText()) > 6 || Integer.parseInt(maxDepthTextField1.getText()) < 0)) {
                     JOptionPane.showMessageDialog(frame, "Значение 'Max Depth' не должно превышать 6 и быть меньше нуля");
+                    menuButton1.setEnabled(true);
+                    menuButton2.setEnabled(false);
+                    menuButton3.setEnabled(false);
+                    menuButton4.setEnabled(false);
+                    searchButton1.setEnabled(true);
+                    stopButton1.setEnabled(false);
                     return;
                 }
 
@@ -507,6 +553,17 @@ public class FileSearchApplication {
 
             for (File file : files) {
                 if (file.isFile() && running.get() && !Thread.currentThread().isInterrupted()) {
+                    if (paused.get()) {
+                        lock.lock();
+                        try {
+                            suspend.await();
+                        } catch (InterruptedException e) {
+                            throw new RuntimeException(e);
+                        }
+                        finally {
+                            lock.unlock();
+                        }
+                    }
                     if (!patternSearch) {
                         String fName = file.getName();
                         if (fName.contains(pattern)) {
@@ -549,6 +606,17 @@ public class FileSearchApplication {
                         }
                     }
                 } else if (recursive && file.isDirectory() && maxDepth != 0 && running.get() && !Thread.currentThread().isInterrupted()) {
+                    if (paused.get()) {
+                        lock.lock();
+                        try {
+                            suspend.await();
+                        } catch (InterruptedException e) {
+                            throw new RuntimeException(e);
+                        }
+                        finally {
+                            lock.unlock();
+                        }
+                    }
                     searchFiles(file, pattern, recursive, patternSearch, maxDepth - 1, fileResultList2);
                 }
             }
