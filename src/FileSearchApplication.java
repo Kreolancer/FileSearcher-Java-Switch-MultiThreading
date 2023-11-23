@@ -39,8 +39,6 @@ public class FileSearchApplication {
     private JFileChooser fileChooser;
     private JFileChooser fileChooser1;
     private JTextArea resultTextArea;
-    private List<File> fileResultList = new ArrayList<>();
-    private List<File> fileResultList1 = new ArrayList<>();
     private Thread fileSearchThread = null;
     private Thread fileSearchThread1 = null;
     private final ReentrantLock lock = new ReentrantLock();
@@ -48,7 +46,6 @@ public class FileSearchApplication {
     Condition suspend1 =  lock1.newCondition();
     AtomicBoolean needToEdit = new AtomicBoolean(true);
     Condition suspend =  lock.newCondition();
-    AtomicBoolean isEditing = new AtomicBoolean(false);
     AtomicBoolean running = new AtomicBoolean(false);
     AtomicBoolean paused = new AtomicBoolean(false);
     Process process = null;
@@ -389,22 +386,8 @@ public class FileSearchApplication {
         if (fileSearchThread != null && !fileSearchThread.isInterrupted()) {
             fileSearchThread.interrupt();
             System.gc();
-            fileResultList.clear();
             searchButton.setEnabled(true);
         }
-
-//        if (fileSearchThread1 != null && !fileSearchThread1.isInterrupted()) {
-//            fileSearchThread1.interrupt();
-//            System.gc();
-//            fileResultList1.clear();
-//            searchButton1.setEnabled(true);
-//        }
-
-//        String directoryPath1 = directoryTextField1.getText();
-//        String pattern1 = patternTextField1.getText();
-//        boolean recursive1 = recursiveCheckBox1.isSelected();
-//        boolean patternSearch1= patternChechBox1.isSelected();
-//        int maxDepth1 = Integer.parseInt(maxDepthTextField1.getText());
 
         String directoryPath = directoryTextField.getText();
         String pattern = patternTextField.getText();
@@ -413,30 +396,8 @@ public class FileSearchApplication {
         int maxDepth = Integer.parseInt(maxDepthTextField.getText());
 
         searchButton.setEnabled(false);
-        fileSearchThread = new Thread(new FileSearchRunnable(directoryPath, pattern, recursive, patternSearch, maxDepth, fileResultList));
+        fileSearchThread = new Thread(new FileSearchRunnable(directoryPath, pattern, recursive, patternSearch, maxDepth));
         fileSearchThread.start();
-
-//        Thread thread3 = new Thread(() -> {
-//            try {
-//                // Ждем, пока пользователь не закроет блокнот с помощью метода waitFor() класса Process
-//                process.waitFor();
-//                // Захватываем Lock
-//                lock1.lock();
-//                try {
-//                    // Возобновляем работу потока, который нашел файл txt, с помощью метода signal() или signalAll() класса Condition
-//                    suspend1.signalAll();
-//                } finally {
-//                    // Освобождаем Lock
-//                    lock1.unlock();
-//                }
-//            } catch (InterruptedException e) {
-//                e.printStackTrace();
-//            }
-//        });
-//        thread3.start();
-
-//        fileSearchThread1 = new Thread(new FileSearchRunnable(directoryPath1, pattern1, recursive1, patternSearch1, maxDepth1, fileResultList1));
-//        fileSearchThread1.start();
 
         ThreadGroup currentGroup = Thread.currentThread().getThreadGroup();
         int noThreads = currentGroup.activeCount();
@@ -447,23 +408,12 @@ public class FileSearchApplication {
                 System.out.println("Thread " + t.getName() + " is running " + t.getState() + "\t" + t.getPriority());
             }
         }
-
-//        try {
-//            fileSearchThread.join();
-//            fileSearchThread1.join();
-//        }
-//        catch (InterruptedException ex) {
-//            ex.printStackTrace();
-//        }
-
-//        searchButton.setEnabled(true);
     }
 
     private void startSearchThreads1() {
         if (fileSearchThread1 != null && !fileSearchThread1.isInterrupted()) {
             fileSearchThread1.interrupt();
             System.gc();
-            fileResultList1.clear();
             searchButton1.setEnabled(true);
         }
 
@@ -474,33 +424,8 @@ public class FileSearchApplication {
         int maxDepth1 = Integer.parseInt(maxDepthTextField1.getText());
 
         searchButton1.setEnabled(false);
-        fileSearchThread1 = new Thread(new FileSearchRunnable(directoryPath1, pattern1, recursive1, patternSearch1, maxDepth1, fileResultList1));
+        fileSearchThread1 = new Thread(new FileSearchRunnable(directoryPath1, pattern1, recursive1, patternSearch1, maxDepth1));
         fileSearchThread1.start();
-
-//        Thread thread3 = new Thread(() -> {
-//            try {
-//                // Ждем, пока пользователь не закроет блокнот с помощью метода waitFor() класса Process
-//                process.waitFor();
-//                // Захватываем Lock
-//                lock1.lock();
-//                try {
-//                    // Возобновляем работу потока, который нашел файл txt, с помощью метода signal() или signalAll() класса Condition
-//                    suspend1.signalAll();
-//                } finally {
-//                    // Освобождаем Lock
-//                    lock1.unlock();
-//                }
-//            } catch (InterruptedException e) {
-//                e.printStackTrace();
-//            }
-//        });
-//        thread3.start();
-
-//        try {
-//            fileSearchThread1.join();
-//        } catch (InterruptedException ex) {
-//            ex.printStackTrace();
-//        }
 
         ThreadGroup currentGroup = Thread.currentThread().getThreadGroup();
         int noThreads = currentGroup.activeCount();
@@ -511,8 +436,6 @@ public class FileSearchApplication {
                 System.out.println("Thread " + t.getName() + " is " + t.getState() + "\t" + t.getPriority());
             }
         }
-
-//        searchButton1.setEnabled(true);
     }
 
     private class FileSearchRunnable implements Runnable {
@@ -521,27 +444,25 @@ public class FileSearchApplication {
         private boolean recursive;
         private boolean patternSearch;
         private int maxDepth;
-        private List<File> fileResultList2;
 
-        public FileSearchRunnable(String directoryPath, String pattern, boolean recursive, boolean patternSearch, int maxDepth, List<File> fileResultList2) {
+        public FileSearchRunnable(String directoryPath, String pattern, boolean recursive, boolean patternSearch, int maxDepth) {
             this.directoryPath = directoryPath;
             this.pattern = pattern;
             this.recursive = recursive;
             this.patternSearch = patternSearch;
             this.maxDepth = maxDepth;
-            this.fileResultList2 = fileResultList2;
         }
 
         @Override
         public void run() {
             while (!Thread.currentThread().isInterrupted()) {
                 if (running.get() && !paused.get()) {
-                    searchFiles(new File(directoryPath), pattern, recursive, patternSearch, maxDepth, fileResultList2);
+                    searchFiles(new File(directoryPath), pattern, recursive, patternSearch, maxDepth);
                 }
             }
         }
 
-        private void searchFiles(File directory, String pattern, boolean recursive, boolean patternSearch, int maxDepth, List<File> fileResultList2) {
+        private void searchFiles(File directory, String pattern, boolean recursive, boolean patternSearch, int maxDepth) {
             if (Thread.interrupted()) {
                 return;
             }
@@ -567,7 +488,6 @@ public class FileSearchApplication {
                     if (!patternSearch) {
                         String fName = file.getName();
                         if (fName.contains(pattern)) {
-                            //fileResultList2.add(file);
                             synchronized (resultTextArea) {
                                 SwingUtilities.invokeLater(() -> {
                                     resultTextArea.append(Thread.currentThread().getName() + "\t" + file.getAbsolutePath() + "\n");
@@ -578,8 +498,6 @@ public class FileSearchApplication {
                         String fName = file.getName();
                         String regex = "^" + pattern.replace(".", "\\.").replace("*", ".+") + "$";
                         if (fName.matches(regex)) {
-
-                            //fileResultList2.add(file);
                             synchronized (resultTextArea) {
                                 SwingUtilities.invokeLater(() -> {
                                     resultTextArea.append(Thread.currentThread().getName() + "\t" + file.getAbsolutePath() + "\n");
@@ -590,7 +508,6 @@ public class FileSearchApplication {
                                 lock1.lock();
                                 try {
                                     process.waitFor();
-                                    //suspend1.await();
                                 } catch (InterruptedException e) {
                                     throw new RuntimeException(e);
                                 }
@@ -603,6 +520,10 @@ public class FileSearchApplication {
                                 needToEdit.set(false);
                                 edit(file);
                             }
+                        }
+                        else {
+                            JOptionPane.showMessageDialog(frame, "Введен паттерн, несоостветствующий шаблону. Введите корректный\n паттерн или отключите поиск по шаблону");
+                            System.exit(0);
                         }
                     }
                 } else if (recursive && file.isDirectory() && maxDepth != 0 && running.get() && !Thread.currentThread().isInterrupted()) {
@@ -617,35 +538,12 @@ public class FileSearchApplication {
                             lock.unlock();
                         }
                     }
-                    searchFiles(file, pattern, recursive, patternSearch, maxDepth - 1, fileResultList2);
+                    searchFiles(file, pattern, recursive, patternSearch, maxDepth - 1);
                 }
             }
-            //StringBuilder sb = new StringBuilder();
-            //for (File file : fileResultList2) {
-            //    sb.append(file.getAbsolutePath()).append("\n");
-            //}
-            //resultTextArea2.append(sb.toString());
         }
 
         private void edit(File file) {
-//            lock1.lock();
-//            try {
-//
-//                if (!Desktop.isDesktopSupported()) {
-//                    System.out.println("Desktop is not supported");
-//                    return;
-//                }
-//
-//                Desktop desktop = Desktop.getDesktop(); //тут приложение по умолчанию винды используется
-//                if (file.exists()) {
-//                    desktop.edit(file);
-//                }
-//            } catch (IOException e) {
-//                e.printStackTrace();
-//            } finally {
-//                lock1.unlock();
-//            }
-
             lock1.lock();
             try {
                 ProcessBuilder pb = new ProcessBuilder("notepad.exe", file.getAbsolutePath());
@@ -659,49 +557,5 @@ public class FileSearchApplication {
                 lock1.unlock();
             }
         }
-
-//        private void editFile(File file) {
-//            lock.lock();
-//            try {
-//                while (isEditing) {
-//
-//                    suspend.await();  // Поток ожидает, пока не получит уведомление
-//
-//                }
-//            } catch (InterruptedException e) {
-//                e.printStackTrace();
-//            } finally {
-//                lock.unlock();
-//            }
-//                isEditing = true;  // Поток начинает редактирование файла
-//
-//                //Запуск файла на редактирование
-//                // Предположим, что 'edit' - это метод, который открывает файл для редактирования
-//                edit(file);
-//
-//                isEditing = false;  // Поток завершил редактирование файла
-//                suspend.signalAll();  // Уведомление всех ожидающих потоков
-//            }
-
-//        private void editFile(File file) {
-//            synchronized(lock1) {
-//                while (isEditing) {
-//                    try {
-//                        lock1.wait();  // Поток ожидает, пока не получит уведомление
-//                    } catch (InterruptedException e) {
-//                        e.printStackTrace();
-//                    }
-//                }
-//
-//                isEditing = true;  // Поток начинает редактирование файла
-//
-//                // Запуск файла на редактирование
-//                // Предположим, что 'edit' - это метод, который открывает файл для редактирования
-//                edit(file);
-//
-//                isEditing = false;  // Поток завершил редактирование файла
-//                lock1.notifyAll();  // Уведомление всех ожидающих потоков
-//            }
-//        }
     }
 }
