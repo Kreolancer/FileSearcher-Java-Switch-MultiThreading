@@ -6,12 +6,20 @@ import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.locks.Condition;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class FileSearchApplication {
 
     private JFrame frame;
+    private JMenuBar menuBar;
+    private JMenu menu;
+    private JMenuItem menuButton1;
+    private JMenuItem menuButton2;
+    private JMenuItem menuButton3;
+    private JMenuItem menuButton4;
+    private JMenuItem menuButton5;
     private JTextField directoryTextField;
     private JTextField directoryTextField1;
     private JTextField patternTextField;
@@ -24,9 +32,10 @@ public class FileSearchApplication {
     private JTextField maxDepthTextField1;
     private JButton searchButton;
     private JButton searchButton1;
-    private JButton clearButton;
     private JButton choosePathButton;
     private JButton choosePathButton1;
+    private JButton stopButton;
+    private JButton stopButton1;
     private JFileChooser fileChooser;
     private JFileChooser fileChooser1;
     private JTextArea resultTextArea;
@@ -35,9 +44,13 @@ public class FileSearchApplication {
     private Thread fileSearchThread = null;
     private Thread fileSearchThread1 = null;
     private final ReentrantLock lock = new ReentrantLock();
+    private final ReentrantLock lock1 = new ReentrantLock();
+    Condition suspend1 =  lock1.newCondition();
     private boolean needToEdit = true;
-    private final Object lock1 = new Object();
+    Condition suspend =  lock.newCondition();
     private boolean isEditing = false;
+    AtomicBoolean running = new AtomicBoolean(false);
+    AtomicBoolean paused = new AtomicBoolean(false);
     public static void main(String[] args) {
         EventQueue.invokeLater(new Runnable() {
             public void run() {
@@ -56,6 +69,83 @@ public class FileSearchApplication {
         frame.setBounds(0, 0, 1500, 700);
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
         frame.setTitle("Lab_3");
+
+        menuBar = new JMenuBar();
+        menu = new JMenu("Меню");
+        menuButton1 = new JMenuItem("Старт");
+        menuButton2 = new JMenuItem("Пауза");
+        menuButton2.setEnabled(false);
+        menuButton3 = new JMenuItem("Продолжить");
+        menuButton3.setEnabled(false);
+        menuButton4 = new JMenuItem("Стоп");
+        menuButton4.setEnabled(false);
+        menuButton5 = new JMenuItem("Очистить");
+        menuButton5.setEnabled(false);
+
+        menuButton1.addActionListener(e -> {
+            needToEdit = true;
+            running.set(true);
+            menuButton2.setEnabled(true);
+            menuButton4.setEnabled(true);
+            menuButton5.setEnabled(true);
+            searchButton.doClick();
+            searchButton1.doClick();
+            menuButton1.setEnabled(false);
+            searchButton.setEnabled(false);
+            searchButton1.setEnabled(false);
+            stopButton.setEnabled(true);
+            stopButton1.setEnabled(true);
+        });
+
+        menuButton2.addActionListener(e -> {
+            paused.set(true);
+            menuButton3.setEnabled(true);
+            System.out.println("Пауза" + "\n");
+            System.out.println("Thread " + fileSearchThread.getName() + " is " + fileSearchThread.getState() + "\t" + fileSearchThread.getPriority());
+            System.out.println("Thread " + fileSearchThread1.getName() + " is " + fileSearchThread1.getState() + "\t" + fileSearchThread1.getPriority());
+        });
+
+        menuButton3.addActionListener(e -> {
+            paused.set(false);
+            menuButton3.setEnabled(false);
+            System.out.println("Возобновить" + "\n");
+            System.out.println("Thread " + fileSearchThread.getName() + " is " + fileSearchThread.getState() + "\t" + fileSearchThread.getPriority());
+            System.out.println("Thread " + fileSearchThread1.getName() + " is " + fileSearchThread1.getState() + "\t" + fileSearchThread1.getPriority());
+        });
+
+        menuButton4.addActionListener(e -> {
+            running.set(false);
+            menuButton1.setEnabled(true);
+            menuButton2.setEnabled(false);
+            menuButton3.setEnabled(false);
+            menuButton4.setEnabled(false);
+            menuButton5.setEnabled(false);
+            searchButton.setEnabled(true);
+            searchButton1.setEnabled(true);
+            System.out.println("Стоп" + "\n");
+            fileSearchThread.interrupt();
+            fileSearchThread1.interrupt();
+            System.gc();
+            System.out.println("Thread " + fileSearchThread.getName() + " is " + fileSearchThread.getState() + "\t" + fileSearchThread.getPriority());
+            System.out.println("Thread " + fileSearchThread1.getName() + " is " + fileSearchThread1.getState() + "\t" + fileSearchThread1.getPriority());
+        });
+
+        menuButton5.addActionListener(e -> {
+            resultTextArea.selectAll();
+            resultTextArea.replaceSelection("");
+            //needToEdit = true;
+            System.out.println("Очистить" + "\n");
+            System.out.println("Thread " + fileSearchThread.getName() + " is running " + fileSearchThread.getState() + "\t" + fileSearchThread.getPriority());
+            System.out.println("Thread " + fileSearchThread1.getName() + " is running " + fileSearchThread1.getState() + "\t" + fileSearchThread1.getPriority());
+        });
+
+        menu.add(menuButton1);
+        menu.add(menuButton2);
+        menu.add(menuButton3);
+        menu.add(menuButton4);
+        menu.add(menuButton5);
+        menuBar.add(menu);
+        frame.setJMenuBar(menuBar);
 
         JPanel panel = new JPanel();
         panel.setSize(900, 100);
@@ -155,18 +245,6 @@ public class FileSearchApplication {
         maxDepthTextField1.setColumns(5);
         panel1.add(maxDepthTextField1);
 
-        clearButton = new JButton("Clear");
-        clearButton.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                resultTextArea.selectAll();
-                resultTextArea.replaceSelection("");
-                needToEdit = true;
-                System.out.println("Thread " + fileSearchThread.getName() + " is running " + fileSearchThread.getState() + "\t" + fileSearchThread.getPriority());
-                System.out.println("Thread " + fileSearchThread1.getName() + " is running " + fileSearchThread1.getState() + "\t" + fileSearchThread1.getPriority());
-            }
-        });
-        panel.add(clearButton);
-
         searchButton = new JButton("Search");
         searchButton.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
@@ -183,6 +261,9 @@ public class FileSearchApplication {
                     return;
                 }
 
+                stopButton.setEnabled(true);
+                searchButton.setEnabled(false);
+                running.set(true);
                 startSearchThreads();
             }
         });
@@ -204,10 +285,37 @@ public class FileSearchApplication {
                     return;
                 }
 
+                stopButton1.setEnabled(true);
+                searchButton1.setEnabled(false);
+                running.set(true);
                 startSearchThreads1();
             }
         });
         panel1.add(searchButton1);
+
+        stopButton = new JButton("Stop");
+        stopButton.setEnabled(false);
+        stopButton.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                fileSearchThread.interrupt();
+                searchButton.setEnabled(true);
+                stopButton.setEnabled(false);
+                System.out.println("Thread " + fileSearchThread.getName() + " is running " + fileSearchThread.getState() + "\t" + fileSearchThread.getPriority());
+            }
+        });
+        panel.add(stopButton);
+
+        stopButton1 = new JButton("Stop");
+        stopButton1.setEnabled(false);
+        stopButton1.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                fileSearchThread1.interrupt();
+                searchButton1.setEnabled(true);
+                stopButton1.setEnabled(false);
+                System.out.println("Thread " + fileSearchThread1.getName() + " is running " + fileSearchThread1.getState() + "\t" + fileSearchThread1.getPriority());
+            }
+        });
+        panel1.add(stopButton1);
 
         resultTextArea = new JTextArea();
         resultTextArea.setEditable(false);
@@ -225,18 +333,18 @@ public class FileSearchApplication {
             searchButton.setEnabled(true);
         }
 
-        if (fileSearchThread1 != null && !fileSearchThread1.isInterrupted()) {
-            fileSearchThread1.interrupt();
-            System.gc();
-            fileResultList1.clear();
-            searchButton1.setEnabled(true);
-        }
+//        if (fileSearchThread1 != null && !fileSearchThread1.isInterrupted()) {
+//            fileSearchThread1.interrupt();
+//            System.gc();
+//            fileResultList1.clear();
+//            searchButton1.setEnabled(true);
+//        }
 
-        String directoryPath1 = directoryTextField1.getText();
-        String pattern1 = patternTextField1.getText();
-        boolean recursive1 = recursiveCheckBox1.isSelected();
-        boolean patternSearch1= patternChechBox1.isSelected();
-        int maxDepth1 = Integer.parseInt(maxDepthTextField1.getText());
+//        String directoryPath1 = directoryTextField1.getText();
+//        String pattern1 = patternTextField1.getText();
+//        boolean recursive1 = recursiveCheckBox1.isSelected();
+//        boolean patternSearch1= patternChechBox1.isSelected();
+//        int maxDepth1 = Integer.parseInt(maxDepthTextField1.getText());
 
         String directoryPath = directoryTextField.getText();
         String pattern = patternTextField.getText();
@@ -248,8 +356,8 @@ public class FileSearchApplication {
         fileSearchThread = new Thread(new FileSearchRunnable(directoryPath, pattern, recursive, patternSearch, maxDepth, fileResultList));
         fileSearchThread.start();
 
-        fileSearchThread1 = new Thread(new FileSearchRunnable(directoryPath1, pattern1, recursive1, patternSearch1, maxDepth1, fileResultList1));
-        fileSearchThread1.start();
+//        fileSearchThread1 = new Thread(new FileSearchRunnable(directoryPath1, pattern1, recursive1, patternSearch1, maxDepth1, fileResultList1));
+//        fileSearchThread1.start();
 
         ThreadGroup currentGroup = Thread.currentThread().getThreadGroup();
         int noThreads = currentGroup.activeCount();
@@ -269,7 +377,7 @@ public class FileSearchApplication {
 //            ex.printStackTrace();
 //        }
 
-        searchButton.setEnabled(true);
+//        searchButton.setEnabled(true);
     }
 
     private void startSearchThreads1() {
@@ -306,7 +414,7 @@ public class FileSearchApplication {
             }
         }
 
-        searchButton1.setEnabled(true);
+//        searchButton1.setEnabled(true);
     }
 
     private class FileSearchRunnable implements Runnable {
@@ -328,7 +436,11 @@ public class FileSearchApplication {
 
         @Override
         public void run() {
-            searchFiles(new File(directoryPath), pattern, recursive, patternSearch, maxDepth, fileResultList2);
+            while (!Thread.currentThread().isInterrupted()) {
+                if (running.get() && !paused.get()) {
+                    searchFiles(new File(directoryPath), pattern, recursive, patternSearch, maxDepth, fileResultList2);
+                }
+            }
         }
 
         private void searchFiles(File directory, String pattern, boolean recursive, boolean patternSearch, int maxDepth, List<File> fileResultList2) {
@@ -342,7 +454,7 @@ public class FileSearchApplication {
             }
 
             for (File file : files) {
-                if (file.isFile()) {
+                if (file.isFile() && running.get() && !Thread.currentThread().isInterrupted()) {
                     if (!patternSearch) {
                         String fName = file.getName();
                         if (fName.contains(pattern)) {
@@ -365,14 +477,14 @@ public class FileSearchApplication {
                                 });
                             }
 
-                            if(needToEdit && fName.endsWith(".txt")) {
+                            if (needToEdit && fName.endsWith(".txt")) {
                                 //String text = file.getAbsoluteFile();
                                 needToEdit = false;
-                                editFile(file);
+                                edit(file);
                             }
                         }
                     }
-                } else if (recursive && file.isDirectory() && maxDepth != 0) {
+                } else if (recursive && file.isDirectory() && maxDepth != 0 && running.get() && !Thread.currentThread().isInterrupted()) {
                     searchFiles(file, pattern, recursive, patternSearch, maxDepth - 1, fileResultList2);
                 }
             }
@@ -384,7 +496,7 @@ public class FileSearchApplication {
         }
 
         private void edit(File file) {
-            //lock.lock();
+            lock.lock();
             try {
 
                 if (!Desktop.isDesktopSupported()) {
@@ -399,52 +511,52 @@ public class FileSearchApplication {
             } catch (IOException e) {
                 e.printStackTrace();
             } finally {
-                //lock.unlock();
+                lock.unlock();
             }
         }
-//Condition suspend =  lock.newCondition();
-        //private void editFile(File file) {
-            //lock.lock();
-            //try {
-            //    while (isEditing) {
-            //
-            //            suspend.await();  // Поток ожидает, пока не получит уведомление
-            //
-            //    }
-        //} catch (InterruptedException e) {
-        //    e.printStackTrace();
-        //}finally {
-        //    lock.unlock();
-        //    }
-        //        isEditing = true;  // Поток начинает редактирование файла
-
-                // Запуск файла на редактирование
-                // Предположим, что 'edit' - это метод, который открывает файл для редактирования
-                //edit(file);
-
-                //isEditing = false;  // Поток завершил редактирование файла
-                //lock1.notifyAll();  // Уведомление всех ожидающих потоков
-            //}
 
         private void editFile(File file) {
-            synchronized(lock1) {
+            lock.lock();
+            try {
                 while (isEditing) {
-                    try {
-                        lock1.wait();  // Поток ожидает, пока не получит уведомление
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
-                    }
-                }
 
+                    suspend.await();  // Поток ожидает, пока не получит уведомление
+
+                }
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            } finally {
+                lock.unlock();
+            }
                 isEditing = true;  // Поток начинает редактирование файла
 
-                // Запуск файла на редактирование
+                //Запуск файла на редактирование
                 // Предположим, что 'edit' - это метод, который открывает файл для редактирования
                 edit(file);
 
                 isEditing = false;  // Поток завершил редактирование файла
-                lock1.notifyAll();  // Уведомление всех ожидающих потоков
+                suspend.signalAll();  // Уведомление всех ожидающих потоков
             }
-        }
+
+//        private void editFile(File file) {
+//            synchronized(lock1) {
+//                while (isEditing) {
+//                    try {
+//                        lock1.wait();  // Поток ожидает, пока не получит уведомление
+//                    } catch (InterruptedException e) {
+//                        e.printStackTrace();
+//                    }
+//                }
+//
+//                isEditing = true;  // Поток начинает редактирование файла
+//
+//                // Запуск файла на редактирование
+//                // Предположим, что 'edit' - это метод, который открывает файл для редактирования
+//                edit(file);
+//
+//                isEditing = false;  // Поток завершил редактирование файла
+//                lock1.notifyAll();  // Уведомление всех ожидающих потоков
+//            }
+//        }
     }
 }
