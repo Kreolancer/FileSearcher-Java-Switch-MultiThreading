@@ -51,7 +51,8 @@ public class FileSearchApplication {
     AtomicBoolean isEditing = new AtomicBoolean(false);
     AtomicBoolean running = new AtomicBoolean(false);
     AtomicBoolean paused = new AtomicBoolean(false);
-    private String fileSave;
+    Process process = null;
+    String fileSave = "";
     public static void main(String[] args) {
         EventQueue.invokeLater(new Runnable() {
             public void run() {
@@ -110,6 +111,17 @@ public class FileSearchApplication {
         menuButton3.addActionListener(e -> {
             paused.set(false);
             menuButton3.setEnabled(false);
+
+//            lock.lock();
+//            try {
+//                suspend.signalAll();
+//            } catch (RuntimeException ex) {
+//                throw new RuntimeException(ex);
+//            }
+//            finally {
+//                lock.unlock();
+//            }
+
             System.out.println("Возобновить" + "\n");
             System.out.println("Thread " + fileSearchThread.getName() + " is " + fileSearchThread.getState() + "\t" + fileSearchThread.getPriority());
             System.out.println("Thread " + fileSearchThread1.getName() + " is " + fileSearchThread1.getState() + "\t" + fileSearchThread1.getPriority());
@@ -358,6 +370,25 @@ public class FileSearchApplication {
         fileSearchThread = new Thread(new FileSearchRunnable(directoryPath, pattern, recursive, patternSearch, maxDepth, fileResultList));
         fileSearchThread.start();
 
+//        Thread thread3 = new Thread(() -> {
+//            try {
+//                // Ждем, пока пользователь не закроет блокнот с помощью метода waitFor() класса Process
+//                process.waitFor();
+//                // Захватываем Lock
+//                lock1.lock();
+//                try {
+//                    // Возобновляем работу потока, который нашел файл txt, с помощью метода signal() или signalAll() класса Condition
+//                    suspend1.signalAll();
+//                } finally {
+//                    // Освобождаем Lock
+//                    lock1.unlock();
+//                }
+//            } catch (InterruptedException e) {
+//                e.printStackTrace();
+//            }
+//        });
+//        thread3.start();
+
 //        fileSearchThread1 = new Thread(new FileSearchRunnable(directoryPath1, pattern1, recursive1, patternSearch1, maxDepth1, fileResultList1));
 //        fileSearchThread1.start();
 
@@ -399,6 +430,25 @@ public class FileSearchApplication {
         searchButton1.setEnabled(false);
         fileSearchThread1 = new Thread(new FileSearchRunnable(directoryPath1, pattern1, recursive1, patternSearch1, maxDepth1, fileResultList1));
         fileSearchThread1.start();
+
+//        Thread thread3 = new Thread(() -> {
+//            try {
+//                // Ждем, пока пользователь не закроет блокнот с помощью метода waitFor() класса Process
+//                process.waitFor();
+//                // Захватываем Lock
+//                lock1.lock();
+//                try {
+//                    // Возобновляем работу потока, который нашел файл txt, с помощью метода signal() или signalAll() класса Condition
+//                    suspend1.signalAll();
+//                } finally {
+//                    // Освобождаем Lock
+//                    lock1.unlock();
+//                }
+//            } catch (InterruptedException e) {
+//                e.printStackTrace();
+//            }
+//        });
+//        thread3.start();
 
 //        try {
 //            fileSearchThread1.join();
@@ -479,6 +529,18 @@ public class FileSearchApplication {
                                 });
                             }
 
+                            if(file.getAbsolutePath().equals(fileSave)) {
+                                lock1.lock();
+                                try {
+                                    process.waitFor();
+                                    //suspend1.await();
+                                } catch (InterruptedException e) {
+                                    throw new RuntimeException(e);
+                                }
+                                finally {
+                                    lock1.unlock();
+                                }
+                            }
                             if (needToEdit.get() && fName.endsWith(".txt")) {
                                 fileSave = file.getAbsolutePath();
                                 needToEdit.set(false);
@@ -519,9 +581,10 @@ public class FileSearchApplication {
             lock1.lock();
             try {
                 ProcessBuilder pb = new ProcessBuilder("notepad.exe", file.getAbsolutePath());
-                Process p = pb.start();
-                p.waitFor();
-            } catch (IOException | InterruptedException e) {
+                process = pb.start();
+                process.waitFor();
+                //suspend1.await();
+            } catch (IOException | InterruptedException | RuntimeException e) {
                 e.printStackTrace();
             }
             finally {
