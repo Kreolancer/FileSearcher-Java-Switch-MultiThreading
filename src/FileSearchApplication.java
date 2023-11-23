@@ -46,17 +46,19 @@ public class FileSearchApplication {
     private final ReentrantLock lock = new ReentrantLock();
     private final ReentrantLock lock1 = new ReentrantLock();
     Condition suspend1 =  lock1.newCondition();
-    private boolean needToEdit = true;
+    AtomicBoolean needToEdit = new AtomicBoolean(true);
     Condition suspend =  lock.newCondition();
-    private boolean isEditing = false;
+    AtomicBoolean isEditing = new AtomicBoolean(false);
     AtomicBoolean running = new AtomicBoolean(false);
     AtomicBoolean paused = new AtomicBoolean(false);
+    private String fileSave;
     public static void main(String[] args) {
         EventQueue.invokeLater(new Runnable() {
             public void run() {
                 try {
                     FileSearchApplication window = new FileSearchApplication();
                     window.frame.setVisible(true);
+                    JOptionPane.showMessageDialog(null, "Работа с обоими потоками одновременно происходит через меню в левом верхнем углу,\n это сделано из-за местами сильных лагов визуальных компонентов Swing\n и невозможности нажать несколько кнопок одновременно во время зависания");
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -83,7 +85,7 @@ public class FileSearchApplication {
         menuButton5.setEnabled(false);
 
         menuButton1.addActionListener(e -> {
-            needToEdit = true;
+            needToEdit.set(true);
             running.set(true);
             menuButton2.setEnabled(true);
             menuButton4.setEnabled(true);
@@ -477,9 +479,9 @@ public class FileSearchApplication {
                                 });
                             }
 
-                            if (needToEdit && fName.endsWith(".txt")) {
-                                //String text = file.getAbsoluteFile();
-                                needToEdit = false;
+                            if (needToEdit.get() && fName.endsWith(".txt")) {
+                                fileSave = file.getAbsolutePath();
+                                needToEdit.set(false);
                                 edit(file);
                             }
                         }
@@ -496,47 +498,59 @@ public class FileSearchApplication {
         }
 
         private void edit(File file) {
-            lock.lock();
+//            lock1.lock();
+//            try {
+//
+//                if (!Desktop.isDesktopSupported()) {
+//                    System.out.println("Desktop is not supported");
+//                    return;
+//                }
+//
+//                Desktop desktop = Desktop.getDesktop(); //тут приложение по умолчанию винды используется
+//                if (file.exists()) {
+//                    desktop.edit(file);
+//                }
+//            } catch (IOException e) {
+//                e.printStackTrace();
+//            } finally {
+//                lock1.unlock();
+//            }
+
+            lock1.lock();
             try {
-
-                if (!Desktop.isDesktopSupported()) {
-                    System.out.println("Desktop is not supported");
-                    return;
-                }
-
-                Desktop desktop = Desktop.getDesktop(); //тут приложение по умолчанию винды используется
-                if (file.exists()) {
-                    desktop.edit(file);
-                }
-            } catch (IOException e) {
+                ProcessBuilder pb = new ProcessBuilder("notepad.exe", file.getAbsolutePath());
+                Process p = pb.start();
+                p.waitFor();
+            } catch (IOException | InterruptedException e) {
                 e.printStackTrace();
-            } finally {
-                lock.unlock();
+            }
+            finally {
+                lock1.unlock();
             }
         }
 
-        private void editFile(File file) {
-            lock.lock();
-            try {
-                while (isEditing) {
-
-                    suspend.await();  // Поток ожидает, пока не получит уведомление
-
-                }
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            } finally {
-                lock.unlock();
-            }
-                isEditing = true;  // Поток начинает редактирование файла
-
-                //Запуск файла на редактирование
-                // Предположим, что 'edit' - это метод, который открывает файл для редактирования
-                edit(file);
-
-                isEditing = false;  // Поток завершил редактирование файла
-                suspend.signalAll();  // Уведомление всех ожидающих потоков
-            }
+//        private void editFile(File file) {
+//            lock.lock();
+//            try {
+//                while (isEditing) {
+//
+//                    suspend.await();  // Поток ожидает, пока не получит уведомление
+//
+//                }
+//            } catch (InterruptedException e) {
+//                e.printStackTrace();
+//            } finally {
+//                lock.unlock();
+//            }
+//                isEditing = true;  // Поток начинает редактирование файла
+//
+//                //Запуск файла на редактирование
+//                // Предположим, что 'edit' - это метод, который открывает файл для редактирования
+//                edit(file);
+//
+//                isEditing = false;  // Поток завершил редактирование файла
+//                suspend.signalAll();  // Уведомление всех ожидающих потоков
+//            }
 
 //        private void editFile(File file) {
 //            synchronized(lock1) {
